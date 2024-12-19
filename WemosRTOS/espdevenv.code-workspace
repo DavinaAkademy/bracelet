@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "espdevenv",
+			"path": ".."
+		},
+		{
+			"name": "WemosRTOS",
+			"path": "."
+		}
+	],
+	"settings": {}
+}
