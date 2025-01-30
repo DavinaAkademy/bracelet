@@ -1,37 +1,26 @@
-from flask import Flask
-import subprocess
 import librosa
-import numpy as np
-import serial
+import socket
+import numpy as np 
 import time
 
-app = Flask(__name__)
-
-# Open serial connection to ESP8266
-ser = serial.Serial('COM4', 115200, timeout=1)  # Adjust COM port if needed
-time.sleep(2)  # Allow time for initialization
-ser.write(b"Port found \n")
+# ESP8266 server IP and port
+ESP_IP = '192.168.1.41'  # ESP IP address
+ESP_PORT = 12345  # ESP Port
 
 # Function to process audio and return vibration data
 def process_audio():
     # ---- Step 3: Load Audio File ----
     audio_file = "music/audio60.wav"
-    ser.write(b"Loading audio file...\n")
 
     try:
         y, sr = librosa.load(audio_file, sr=None, mono=True)
-        ser.write(f"Audio loaded: {sr} Hz sample rate, {len(y)} samples total.\n".encode())
     except Exception as e:
-        ser.write(f"Audio Load Error: {str(e)}\n".encode())
-        ser.close()
-        exit(1)
+        print(f"Audio Load Error: {str(e)}")
+        return
 
     # ---- Step 4: Estimate BPM & Filter Frequencies ----
-    ser.write(b"Estimating BPM and filtering frequencies...\n")
-
     tempo, beats = librosa.beat.beat_track(y=y, sr=sr)
     bpm = float(tempo) if isinstance(tempo, (int, float)) else 120
-    ser.write(f"Estimated BPM: {bpm:.2f} BPM\n".encode())
 
     # Apply band-pass filter (20-150 Hz)
     def bandpass_filter(signal, sr, lowcut=20, highcut=150):
@@ -44,7 +33,6 @@ def process_audio():
     y_filtered = bandpass_filter(y, sr)
 
     # ---- Step 5: Compute Weighted RMS Per Beat ----
-    ser.write(b"Calculating weighted RMS per beat...\n")
     rms_energy = librosa.feature.rms(y=y_filtered)[0]
 
     weighted_rms = []
@@ -53,34 +41,26 @@ def process_audio():
         rms_segment = rms_energy[start:end]
         weight = (rms_segment ** 2).mean()
         weighted_rms.append(weight)
-        ser.write(f"Beat {i+1}: Weighted RMS = {weight:.5f}\n".encode())
 
     # ---- Step 6: Normalize Vibration Intensity ----
-    ser.write(b"Normalizing intensity for vibration...\n")
-    vibration_data = np.interp(weighted_rms, (min(weighted_rms), max(weighted_rms)), (0, 255))
-    vibration_data = [int(val) for val in vibration_data]  # Convert to int
+    if len(weighted_rms) > 0:
+        vibration_data = np.interp(weighted_rms, (min(weighted_rms), max(weighted_rms)), (0, 255))
+        vibration_data = [int(val) for val in vibration_data]
+    else:
+        vibration_data = [0] * 10  # Default to 0 intensity if no data
 
-    # ---- Step 7: Send Data to ESP8266 ----
-    ser.write(b"Sending vibration data to ESP8266...\n")
-    ser.write(b"DATA_START\n")  # Signal ESP that data is starting
-    time.sleep(0.5)
+    # ---- Step 7: Send Data to ESP8266 over socket ----
+    try:
+        # Create socket connection to ESP8266
+        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        client_socket.connect((ESP_IP, ESP_PORT))
 
-    for value in vibration_data:
-        ser.write(f"{value}\n".encode())  # Send each vibration intensity value
-        time.sleep(0.05)  # Avoid buffer overflow
+        # Send vibration data to ESP8266
+        for value in vibration_data:
+            client_socket.send(f"{value}\n".encode())
+            time.sleep(0.05)
 
-    ser.write(b"DATA_END\n")  # Signal ESP that data is complete
-    ser.write(b"All vibration data sent.\n")
-
-    # ---- Step 8: Finish Process ----
-    ser.write(b"Vibration sync complete. Stopping vibration...\n")
-    ser.close()
-
-# Flask endpoint to trigger the audio processing
-@app.route('/play', methods=['POST'])
-def play():
-    process_audio()  # Run the audio processing script
-    return "Python script started", 200
-
-if __name__ == "__main__":
-    app.run(host="192.168.1.86", port=5000)
+        client_socket.send(b"DATA_END\n")  # Signal ESP that data is complete
+        client_socket.close()
+    except Exception as e:
+        print(f"Socket Error: {str(e)}")

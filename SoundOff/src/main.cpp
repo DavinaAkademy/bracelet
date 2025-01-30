@@ -1,110 +1,57 @@
 #include <ESP8266WiFi.h>
-#include <ESP8266WebServer.h>
-#include <ESP8266HTTPClient.h>
-#include <WiFiClient.h>
 
-const char* ssid = "ITAKADEMY-STUDENTS";
-const char* password = "itakademy";
+const char *ssid = "ITAKADEMY-STUDENTS";
+const char *password = "itakademy";
 
-ESP8266WebServer server(80);
-
-// Function to send a request to the Flask server (to trigger the Python script)
-void executePythonScript() {
-    WiFiClient client;
-    HTTPClient http;
-    http.begin(client, "http://192.168.1.86:5000/play");  // IP of your Flask server
-    int httpCode = http.POST("");  // Send an empty POST request
-
-    if (httpCode == 200) {
-        Serial.println("Successfully triggered Python script.");
-    } else {
-        Serial.println("Failed to trigger Python script.");
-    }
-    
-    http.end();
-}
+// ESP8266 IP and port
+WiFiServer server(12345);  // Same port as in your Flask server
 
 void setup() {
-    Serial.begin(115200);  // Debugging output
-    Serial1.begin(9600);   // Serial1 (TX on GPIO2) for Python script communication
+  Serial.begin(115200);
+  WiFi.begin(ssid, password);
 
-    Serial.println("Starting ESP8266...");
-    
-    // Connect to Wi-Fi
-    WiFi.begin(ssid, password);
-    Serial.print("Connecting to WiFi");
-    unsigned long startAttemptTime = millis();
-    while (WiFi.status() != WL_CONNECTED && millis() - startAttemptTime < 15000) { // 15s timeout
-        delay(500);
-        Serial.print(".");
-    }
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(1000);
+    Serial.println("Connecting to WiFi...");
+  }
 
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\nWiFi connected. IP address: " + WiFi.localIP().toString());
-    } else {
-        Serial.println("\nFailed to connect to WiFi.");
-        return;
-    }
+  Serial.println("Connected to WiFi");
+  Serial.print("IP Address: ");
+  Serial.println(WiFi.localIP());
 
-    // Serve HTML page
-    server.on("/", HTTP_GET, []() {
-        Serial.println("Serving main web page...");
-        server.send(200, "text/html", R"rawliteral(
-            <html>
-                <body>
-                    <h1>ESP8266 Vibration Control</h1>
-                    <button onclick="sendCommand('play')">Play</button>
-                    <button onclick="sendCommand('stop')">Stop</button>
-                    <p id="status">Status: Ready</p>
-                    <script>
-                        function sendCommand(cmd) {
-                            fetch('/' + cmd, { method: 'POST' })
-                                .then(response => response.text())
-                                .then(data => document.getElementById('status').innerText = "Status: " + data);
-                        }
-                    </script>
-                </body>
-            </html>
-        )rawliteral");
-    });
-
-    // Play endpoint: triggers Python script
-    server.on("/play", HTTP_POST, []() {
-        Serial.println("Received /play request.");
-        executePythonScript();  // Run the script on the Flask server
-
-        // Wait for vibration data from the Python script
-        Serial.println("Waiting for vibration data...");
-        String vibrationData = "";
-        unsigned long startTime = millis();
-        while (millis() - startTime < 2000) {  // 2s timeout for response
-            while (Serial1.available()) {
-                char c = Serial1.read();
-                vibrationData += c;
-            }
-        }
-
-        if (vibrationData.length() > 0) {
-            Serial.print("Received Vibration Data: ");
-            Serial.println(vibrationData);
-            server.send(200, "text/plain", "Playing... Vibration: " + vibrationData);
-        } else {
-            Serial.println("Warning: No vibration data received!");
-            server.send(200, "text/plain", "Playing... but no vibration data received.");
-        }
-    });
-
-    // Stop endpoint: sends STOP command to Python
-    server.on("/stop", HTTP_POST, []() {
-        Serial.println("Received /stop request.");
-        Serial1.println("STOP");  // Tell Python script to stop
-        server.send(200, "text/plain", "Stopped.");
-    });
-
-    server.begin();
-    Serial.println("Web server started.");
+  server.begin();  // Start the server
 }
 
 void loop() {
-    server.handleClient();  // Handle incoming client requests
+  WiFiClient client = server.available();  // Listen for incoming clients
+
+  if (client) {
+    Serial.println("Client connected");
+    String vibrationData = "";
+
+    // Read the data sent from the Flask server
+    while (client.connected()) {
+      if (client.available()) {
+        char c = client.read();  // Read the incoming byte
+        vibrationData += c;  // Append to the vibration data
+        delay(5);
+        
+        if (c == '\n') {  // End of data transmission (newline character)
+          Serial.print("Received vibration data: ");
+          Serial.println(vibrationData);
+          
+          // Parse and process the vibration data here if needed
+          int vibrationIntensity = vibrationData.toInt();
+          if (vibrationIntensity > 0) {
+            // Control the vibration motor using PWM (for example)
+            analogWrite(5, vibrationIntensity);
+          }
+          vibrationData = "";  // Reset data for next transmission
+        }
+      }
+    }
+    client.stop();  // Disconnect the client after the transmission is complete
+    Serial.println("Client disconnected");
+  }
 }

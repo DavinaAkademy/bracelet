@@ -1,0 +1,36 @@
+body {
+    background-color: #0d1f1e;
+    color: #e0b04b;
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+.logo {
+    max-width: 200px;
+    margin-top: 20px;
+}
+
+h1 {
+    font-weight: bold;
+    margin-top: 20px;
+}
+
+.description {
+    font-size: 1.2em;
+    color: #ffffff;
+    margin: 20px auto;
+    max-width: 600px;
+}
+
+.btn-primary {
+    background-color: #e0b04b;
+    border: none;
+    padding: 10px 20px;
+    font-size: 1.2em;
+    color: #0d1f1e;
+    font-weight: bold;
+}
+
+.btn-primary:hover {
+    background-color: #b38436;
+}
