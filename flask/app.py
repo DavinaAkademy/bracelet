@@ -1,4 +1,3 @@
-# save this as app.py
 from flask import Flask, request, jsonify, render_template
 from time import sleep
 import sounddevice as sd
