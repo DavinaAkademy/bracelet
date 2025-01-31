@@ -1,101 +1,4 @@
-/** #include <Arduino.h>
-#include <ESP8266WiFi.h>
-#include <ESP8266WiFiMulti.h>
-#include <WebSocketsServer.h>
-#include <Hash.h>
-
-
-// Configuration
-#define BUZZER_PIN 5
-#define SERIAL_BAUD 115200
-#define WEBSOCKET_PORT 80
-
-// WiFi credentials
-const char* WIFI_SSID = "Dievine";
-const char* WIFI_PASSWORD = "tamere66";
-
-// Global objects
-ESP8266WiFiMulti wifiMulti;
-WebSocketsServer webSocket(WEBSOCKET_PORT);
-
-// Function prototypes
-void setupSerial();
-void setupWiFi();
-void setupWebSocket();
-void handleWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length);
-void setBuzzerValue(const char* hexValue);
-
-void setup() {
-    setupSerial();
-    pinMode(BUZZER_PIN, OUTPUT);
-    setupWiFi();
-    setupWebSocket();
-}
-
-void loop() {
-    webSocket.loop();
-}
-
-void setupSerial() {
-    Serial.begin(SERIAL_BAUD);
-    Serial.println("\nInitializing...");
-}
-
-void setupWiFi() {
-    wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
-    
-    Serial.print("Connecting to WiFi");
-    while (wifiMulti.run() != WL_CONNECTED) {
-        delay(100);
-        Serial.print(".");
-    }
-    
-    Serial.printf("\nConnected to %s\nIP address: ", WIFI_SSID);
-    Serial.println(WiFi.localIP());
-}
-
-void setupWebSocket() {
-    webSocket.begin();
-    webSocket.onEvent(handleWebSocketEvent);
-    Serial.printf("WebSocket server started on port %d\n", WEBSOCKET_PORT);
-}
-
-void handleWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t length) {
-    switch (type) {
-        case WStype_DISCONNECTED:
-            Serial.printf("[%u] Client disconnected\n", num);
-            break;
-            
-        case WStype_CONNECTED: {
-            IPAddress ip = webSocket.remoteIP(num);
-            Serial.printf("[%u] Client connected from %d.%d.%d.%d\n", 
-                num, ip[0], ip[1], ip[2], ip[3]);
-            webSocket.sendTXT(num, "Connected");
-            break;
-        }
-            
-        case WStype_TEXT:
-            Serial.printf("[%u] Received: %s\n", num, payload);
-            if (payload[0] == '#') {
-                setBuzzerValue((const char*)&payload[1]);
-            }
-            break;
-            
-        default:
-            break;
-    }
-}
-
-void setBuzzerValue(const char* hexValue) {
-    int value = (int)strtol(hexValue, NULL, 16);
-    value = constrain(value, 0, 255);  // Ensure value is in valid range
-    
-    Serial.printf("Setting buzzer to: %d\n", value);
-    analogWrite(BUZZER_PIN, value);
-}
-    */
-
-   #include <Arduino.h>
+#include <Arduino.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266WiFiMulti.h>
 #include <WebSocketsServer.h>
@@ -105,7 +8,7 @@ void setBuzzerValue(const char* hexValue) {
 #define BUZZER_PIN 5
 #define SERIAL_BAUD 115200
 #define WEBSOCKET_PORT 80
-#define WIFI_TIMEOUT 20  // Seconds to wait for WiFi connection
+#define WIFI_TIMEOUT 10  
 
 // WiFi credentials
 const char* WIFI_SSID = "ITAKADEMY-STUDENTS";
@@ -115,7 +18,6 @@ const char* WIFI_PASSWORD = "itakademy";
 ESP8266WiFiMulti wifiMulti;
 WebSocketsServer webSocket(WEBSOCKET_PORT);
 
-// Function prototypes
 void setupSerial();
 void setupWiFi();
 void setupWebSocket();
@@ -133,7 +35,7 @@ void setup() {
 void loop() {
     webSocket.loop();
     
-    // Print IP address every 30 seconds
+    // Print IP address every 30 seconds so we can change it on app.py
     static unsigned long lastPrint = 0;
     if (millis() - lastPrint > 30000) {
         printWiFiStatus();
@@ -159,12 +61,11 @@ void printWiFiStatus() {
 }
 
 void setupWiFi() {
-    WiFi.mode(WIFI_STA);  // Set WiFi to station mode
+    WiFi.mode(WIFI_STA); 
     wifiMulti.addAP(WIFI_SSID, WIFI_PASSWORD);
     
     Serial.printf("\nConnecting to %s", WIFI_SSID);
-    
-    // Try to connect with timeout
+ 
     int timeout = 0;
     while (wifiMulti.run() != WL_CONNECTED && timeout < WIFI_TIMEOUT * 10) {
         delay(100);
@@ -174,7 +75,7 @@ void setupWiFi() {
     
     if (WiFi.status() != WL_CONNECTED) {
         Serial.println("\nWiFi connection FAILED");
-        ESP.restart();  // Restart ESP if connection fails
+        ESP.restart(); 
     }
     
     printWiFiStatus();
@@ -214,7 +115,7 @@ void handleWebSocketEvent(uint8_t num, WStype_t type, uint8_t* payload, size_t l
 
 void setBuzzerValue(const char* hexValue) {
     int value = (int)strtol(hexValue, NULL, 16);
-    value = constrain(value, 0, 255);  // Ensure value is in valid range
+    value = constrain(value, 0, 255); 
     
     Serial.printf("Setting buzzer to: %d\n", value);
     analogWrite(BUZZER_PIN, value);
