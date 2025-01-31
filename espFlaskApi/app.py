@@ -4,9 +4,12 @@ import sounddevice as sd
 import numpy as np
 from websocket import create_connection
 from threading import Thread
+from dotenv import load_dotenv
 import os
 import logging
-from datetime import datetime
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(
@@ -17,10 +20,19 @@ logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
+# Set the FLASK_ENV configuration
+app.config['ENV'] = os.getenv('FLASK_ENV', 'production')
+
 # Configuration from environment variables
 ESP32_SERVER = os.getenv('ESP32_SERVER', '192.168.1.41')
 ESP32_PORT = os.getenv('ESP32_PORT', '80')
 DEFAULT_POWER_FACTOR = float(os.getenv('DEFAULT_POWER_FACTOR', '4.0'))
+
+# Print all environment variables in development mode
+if app.config['ENV'] == 'development':
+    logger.info(f"ESP32_SERVER: {ESP32_SERVER}")
+    logger.info(f"ESP32_PORT: {ESP32_PORT}")
+    logger.info(f"DEFAULT_POWER_FACTOR: {DEFAULT_POWER_FACTOR}")
 
 # Global variables
 run_stream = False
@@ -28,9 +40,6 @@ ws = None
 stream_thread = None
 audio_stream = None
 power_factor = DEFAULT_POWER_FACTOR
-
-
-
 
 @app.route('/')
 def index():
